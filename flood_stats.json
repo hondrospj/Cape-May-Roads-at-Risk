@@ -1,6 +1,6 @@
 {
   "schema": "roads-at-risk-flood-stats-v2",
-  "generatedAt": "2026-08-10T20:23:45.117Z",
+  "generatedAt": "2026-08-10T22:43:30.337Z",
   "gaugeName": "Cape May Harbor",
   "station": {
     "usgsGaugeId": "01411390",
@@ -11,21 +11,21 @@
   },
   "archive": {
     "startDate": "2007-10-01",
-    "endDate": "2026-08-09",
-    "days": 6247,
-    "years": 17.1,
+    "endDate": "2026-08-10",
+    "days": 6248,
+    "years": 17.11,
     "classificationCounts": {
-      "none": 5618,
+      "none": 5619,
       "minor": 598,
       "moderate": 29,
       "major": 2
     }
   },
   "tideModel": {
-    "highTideCount": 12073,
+    "highTideCount": 12080,
     "drawsPerYear": 706,
     "predictionRows": 300,
-    "trendFtPerYear": 0.01924622,
+    "trendFtPerYear": 0.01917265,
     "trendSource": {
       "station": "01411390",
       "source": "Cape May Harbor observed hourly monthly means",
@@ -34,7 +34,7 @@
       "monthlyPoints": 215,
       "firstMonth": "2007-10",
       "lastMonth": "2026-08",
-      "rawSlopeFtPerYear": 0.01924622
+      "rawSlopeFtPerYear": 0.01917265
     }
   },
   "datum": {
@@ -795,6 +795,7 @@
     1.76,
     1.76,
     1.76,
+    1.77,
     1.77,
     1.77,
     1.77,
@@ -43866,6 +43867,12 @@
       "date": "2026-08-09",
       "peakNavd88Ft": 3.1,
       "peakMllwFt": 5.87,
+      "classification": "none"
+    },
+    {
+      "date": "2026-08-10",
+      "peakNavd88Ft": 1.77,
+      "peakMllwFt": 4.54,
       "classification": "none"
     }
   ]
