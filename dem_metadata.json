@@ -1,0 +1,45 @@
+{
+  "name": "Roads at Risk - Cape May DEM",
+  "source": "USGS 3DEP Bare Earth DEM Dynamic ImageServer",
+  "sourceUrl": "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer",
+  "sourceDescription": "USGS 3D Elevation Program (3DEP) Bare Earth DEM Dynamic service, retrieved for the Roads at Risk municipal rollout.",
+  "downloadedAt": "2026-08-10",
+  "processing": "Exported from USGS 3DEP at municipal extent, masked to the Cape May boundary, resampled to 1.524 m / 5 ft pixels, and compressed as a Cloud Optimized GeoTIFF.",
+  "horizontalCrs": "EPSG:3857",
+  "verticalUnits": "meters",
+  "displayElevationUnits": "feet",
+  "pixelSizeMeters": 1.524,
+  "pixelSizeFeet": 4.99999999998,
+  "adaptiveResolution": false,
+  "width": 5482,
+  "height": 2223,
+  "nodata": -999999,
+  "minMeters": -1.256,
+  "maxMeters": 9.382,
+  "meanMeters": 1.905,
+  "stdDevMeters": 1.56,
+  "minFeet": -4.12073490812,
+  "maxFeet": 30.78083989489,
+  "webMercatorBounds": [
+    -8342125.24542,
+    4711437.860657,
+    -8333770.67742,
+    4714825.712657
+  ],
+  "leafletBounds": [
+    [
+      38.9285221,
+      -74.9385861
+    ],
+    [
+      38.9521914,
+      -74.8635401
+    ]
+  ],
+  "files": {
+    "demCog": "cape_may_dem_5ft_cog.tif",
+    "hillshadeCog": "cape_may_hillshade_cog.tif",
+    "hillshadePng": "cape_may_hillshade.png",
+    "boundaryGeojson": "cape_may_boundary.geojson"
+  }
+}
