@@ -1,6 +1,6 @@
 // Geometry-only centerline tracing, not turn-by-turn or safe-driving routing.
 // Coordinates are [longitude, latitude] in WGS84.
-export function buildRoadNetwork(collection){
+export function buildRoadNetwork(collection, {contains=null}={}){
   const first = collection.features?.find(f => ['LineString','MultiLineString'].includes(f.geometry?.type))?.geometry;
   const origin = first?.type === 'MultiLineString' ? first.coordinates[0]?.[0] : first?.coordinates[0];
   if(!origin) throw new Error('No road centerlines available');
@@ -25,7 +25,9 @@ export function buildRoadNetwork(collection){
         // Connect only source endpoints, not arbitrary crossing/bridge vertices.
         const endpoint = i === 0 || i === coordinates.length-1;
         const level = i === 0 ? feature.properties?.ELEVTYP_F : feature.properties?.ELEVTYP_T;
-        const id = endpoint ? `${p[0].toFixed(7)},${p[1].toFixed(7)},${level ?? 0}`
+        const clipped = i===0 ? feature.properties?.CLIPPED_F : feature.properties?.CLIPPED_T;
+        const id = endpoint && clipped ? `clip:${featureIndex}:${partIndex}:${i}`
+          : endpoint ? `${p[0].toFixed(7)},${p[1].toFixed(7)},${level ?? 0}`
           : `shape:${featureIndex}:${partIndex}:${i}`;
         return addNode(id, p);
       });
@@ -43,6 +45,7 @@ export function buildRoadNetwork(collection){
   if(!edges.length) throw new Error('No usable road segments');
 
   function nearest(coordinate, maxDistanceM=25){
+    if(contains && !contains(coordinate)) return null;
     const p = project(coordinate);
     let best = null;
     for(const edge of edges){

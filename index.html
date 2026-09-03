@@ -4215,7 +4215,8 @@
 
   <script type="module">
     import * as GeoTIFF from "https://cdn.jsdelivr.net/npm/geotiff@2.1.3/+esm";
-    import { buildRoadNetwork } from "./road-centerlines.mjs";
+    import { buildRoadNetwork } from "./road-centerlines.mjs?v=city-boundary-1";
+    import { municipalRoads } from "./municipal-roads.mjs";
 
     const FT_PER_M = 3.280839895;
     const DEM_URL = "cape_may_dem_5ft_cog.tif";
@@ -4362,10 +4363,13 @@
 
     async function loadRoadCenterlines(){
       try{
-        const response = await fetch("cape_may_road_centerlines.geojson");
-        if(!response.ok) throw new Error(`Centerlines HTTP ${response.status}`);
-        const data = await response.json();
-        state.roadNetwork = buildRoadNetwork(data);
+        const [source,boundary] = await Promise.all(["cape_may_road_centerlines.geojson",BOUNDARY_URL].map(async url => {
+          const response = await fetch(url);
+          if(!response.ok) throw new Error(`Road boundary/data HTTP ${response.status}`);
+          return response.json();
+        }));
+        const {roads:data,contains} = municipalRoads(source,boundary);
+        state.roadNetwork = buildRoadNetwork(data,{contains});
         map.createPane("roadCenterlines");
         map.getPane("roadCenterlines").style.zIndex = 410;
         map.getPane("roadCenterlines").style.pointerEvents = "none";
@@ -4374,7 +4378,7 @@
           attribution:'Road centerlines: <a href="https://www.arcgis.com/home/item.html?id=f8cca09665b448709b6073b4ccb25c59">NJOGIS</a>'});
         updateRoadOverlay();
         setText("roadStatus", $("snapRoads").checked
-          ? "Draw or drag a numbered point near a blue road to snap."
+          ? "Cape May city roads only. Draw or drag a point near a blue centerline."
           : "Freehand mode. Draw or drag points without road snapping.");
       }catch(error){
         console.warn("Road centerlines unavailable", error);
@@ -6236,7 +6240,7 @@
             const snap = nearestRoadPoint(marker.getLatLng());
             if(!snap){
               marker.setLatLng(previousPosition);
-              setText("roadStatus", "No nearby centerline. Point kept in place; move closer to a blue road.");
+              setText("roadStatus", "No city centerline here. Point kept in place; move inside Cape May, near a blue road.");
               return;
             }
             const snappedPoint = L.latLng(snap.coordinate[1],snap.coordinate[0]);
@@ -6861,7 +6865,7 @@
       if(state.drawingRoadSnapped){
         const route = traceRoadPoints([...state.pendingPoints, point]);
         if(!route || (state.pendingPoints.length && route.path.length < 2)){
-          setText("drawPromptText", "No connected road here. Zoom in and tap closer to a centerline.");
+          setText("drawPromptText", "Choose a connected road inside Cape May's red city boundary.");
           return;
         }
         point = route.points[route.points.length-1];

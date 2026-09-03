@@ -18,6 +18,28 @@ await page.route(baseURL,route=>{
 await page.goto(baseURL);
 await page.waitForFunction(()=>window.__rr?.state.raster && window.__rr.state.roadNetwork,{},{timeout:90000});
 console.log('LOADED',await page.evaluate(()=>({profile:__rr.state.profile.length,segments:__rr.state.roadNetwork.segmentCount})));
+const boundaryChecks=await page.evaluate(async()=>{
+ const {state,map,setDrawMode}=__rr;
+ const {municipalRoads}=await import('./municipal-roads.mjs');
+ const boundary=await (await fetch('cape_may_boundary.geojson')).json();
+ const raw=await (await fetch('cape_may_road_centerlines.geojson')).json();
+ const {contains}=municipalRoads(raw,boundary);
+ // Preserve actual rendered coordinates; Leaflet's default six-decimal
+ // export rounding can move an exact boundary intersection centimeters out.
+ const visible=state.roadLayer.toGeoJSON(false);
+ if(visible.features.some(f=>f.geometry.coordinates.some(p=>!contains(p)))) throw new Error('outside road still highlighted');
+ const outside=raw.features.flatMap(f=>f.geometry.coordinates).find(p=>!contains(p));
+ if(state.roadNetwork.nearest(outside,1000)) throw new Error('outside snapping target remains');
+ setDrawMode(true);
+ map.fire('click',{latlng:L.latLng(outside[1],outside[0])});
+ if(state.pendingPoints.length) throw new Error('outside click accepted');
+ map.fire('mousemove',{latlng:L.latLng(outside[1],outside[0])});
+ if(state.snapPreview) throw new Error('outside snap preview shown');
+ setDrawMode(false);
+ return {displayedRoads:visible.features.length,outsideClickRejected:true};
+});
+console.log('PASS municipal boundary',boundaryChecks);
+if(process.env.ROADRISK_SCREENSHOT) await page.screenshot({path:process.env.ROADRISK_SCREENSHOT});
 assert.equal(await page.locator('#blockViewBtn').count(),0);
 const drag=await page.evaluate(()=>{
  const {state,map}=__rr;const m=state.markers[0];
@@ -106,6 +128,13 @@ await page.locator('#snapRoads').uncheck();
 await page.evaluate(()=>__rr.setDrawMode(true));
 assert.equal(await page.evaluate(()=>__rr.state.drawMode),true);
 console.log('PASS responsive 280–1920px; missing centerlines safely require explicit freehand');
+await page.unroute('**/cape_may_road_centerlines.geojson');
+await page.route('**/cape_may_boundary.geojson',route=>route.fulfill({status:503,body:'unavailable'}));
+await page.reload();
+await page.waitForFunction(()=>window.__rr && document.querySelector('#roadStatus').textContent.includes('unavailable'));
+assert.equal(await page.evaluate(()=>__rr.state.roadNetwork),null);
+assert.equal(await page.evaluate(()=>__rr.state.roadLayer),null);
+console.log('PASS missing boundary fails closed: no unfiltered road layer or network');
 assert.deepEqual(errors,[]);
 }finally{
  await browser.close();
