@@ -14,12 +14,12 @@ Municipal constants:
 
 Terrain source: USGS 3DEP Bare Earth DEM Dynamic ImageServer, clipped to the Cape May boundary at 5-foot resolution.
 
-## Road profiles and block views
+## Road profiles and zoom
 
-- **Snap to roads** defaults on for new drawings. Click/tap near a centerline, add waypoints to choose the route, then finish. Profiles follow the shortest connected centerline geometry between waypoints, including bends. Turn snapping off for freehand cross sections. Existing/default profiles are not automatically moved.
-- Dragging a snapped waypoint re-traces the road profile. Off-road or disconnected moves are rejected; the previous profile remains. Snapping uses an 18-screen-pixel tolerance capped at 25 meters (minimum 2 meters).
+- **Snap to roads** defaults on for drawing AND dragging any numbered point, including the initial/default or older saved freehand profiles. Click/tap near a blue centerline, add waypoints to choose the route, then finish. Profiles follow the shortest connected centerline geometry between waypoints, including bends. Turn snapping off for freehand drawing/dragging. Existing profiles are never moved merely by toggling the checkbox.
+- Dragging a freehand endpoint snaps that endpoint independently; once all control points can connect, the whole profile follows the roads. Until then, status explicitly says the remaining line is freehand. A previously road-traced profile rejects disconnected or off-road moves and keeps the previous profile. Snapping uses a 22-screen-pixel tolerance capped at 50 meters (minimum 5 meters). The mouse/drag preview shows the target road and snap location. Blue roads stay visible at town zoom.
 - Saved profiles and CSV/Shapefile exports preserve the traced geometry. Older saved freehand lines remain supported.
-- **Block view** zooms the current map center to level 19; all basemaps allow zoom through 21. Light/Dark overzoom their native level 16 tiles; Aerial/Relief/Streets use native tiles through 19. Overzoom does not increase source imagery or DEM resolution (5 feet).
+- Use ordinary map +/−, scroll or pinch controls; all basemaps allow zoom through 21. Light/Dark overzoom their native level 16 tiles; Aerial/Relief/Streets use native tiles through 19. Overzoom does not increase source imagery or DEM resolution (5 feet).
 - These are terrain profiles, **not safe-driving directions**, turn-restriction-aware routing, or surveyed pavement elevations. Review the highlighted route; centerline positional error, bridges and bare-earth DEM limitations still apply.
 
 ### Centerline provenance
@@ -29,3 +29,5 @@ Terrain source: USGS 3DEP Bare Earth DEM Dynamic ImageServer, clipped to the Cap
 Query: `where=1=1`, WGS84 intersection envelope `-74.941,38.926,-74.861,38.955`, output WGS84, fields `OBJECTID,PRIMENAME,ELEVTYP_F,ELEVTYP_T`, ordered by OBJECTID. All 748 returned features verified against the service count (748); no transfer-limit truncation. The buffer allows tracing roads crossing the municipal/DEM boundary; elevations outside the DEM remain unavailable. Source endpoints connect only at matching coordinates and elevation levels; arbitrary line crossings do not create junctions. Bundled data removes reliance on a live GIS request at runtime.
 
 Run geometry tests with `node --test tests/road-centerlines.test.mjs`.
+
+Browser regression: serve this repository at `http://127.0.0.1:8765/` (for example, `python3 -m http.server 8765 --bind 127.0.0.1`), then run `node tests/browser-snapping.mjs` with Playwright and Chrome installed. `PLAYWRIGHT_MODULE` may point to an existing Playwright module; `ROADRISK_TEST_URL` overrides the local URL. This tests actual mouse dragging of the default endpoint, actual drawing clicks and snap previews, curved paths, save/export, invalid moves, freehand mode, normal zoom, 280–1920px layouts, and explicit fallback when centerline data fails. External map/CDN access is required; the intentional 503 in the final failure test is expected.

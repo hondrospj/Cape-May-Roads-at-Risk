@@ -3959,7 +3959,6 @@
     .roadControls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px}
     .roadControls label{display:flex;align-items:center;gap:7px;min-height:36px;font-size:12px;cursor:pointer}
     .roadControls input{width:17px;height:17px;margin:0;accent-color:#22d3ee}
-    .roadControls button{min-height:36px;font-size:12px}
     .roadStatus{margin-top:4px;font-size:11px;line-height:1.4;opacity:.8;overflow-wrap:anywhere}
     @media (min-width:1181px){
       .shell:not(.paneExpanded) .rightStack{top:calc(var(--ui-gap) + var(--actual-map-control-h, 190px) + 10px)}
@@ -4013,7 +4012,6 @@
       </div>
       <div class="roadControls">
         <label><input id="snapRoads" type="checkbox" checked aria-describedby="roadStatus">Snap to roads</label>
-        <button id="blockViewBtn" class="secondary" type="button">Block view</button>
       </div>
       <div id="roadStatus" class="roadStatus" role="status">Loading road centerlines…</div>
     </section>
@@ -4238,6 +4236,7 @@
       pendingPoints:[],
       roadNetwork:null,
       roadLayer:null,
+      snapPreview:null,
       drawingRoadSnapped:false,
       pendingRoadRoute:null,
       activeRoadSnapped:false,
@@ -4333,12 +4332,19 @@
     state.savedLineLayers = new Map();
 
     function $(id){ return document.getElementById(id); }
-    function traceRoadPoints(points){
-      // Screen-size tolerance, capped at 25 m to avoid jumping across blocks.
+    function roadSnapTolerance(){
+      // A usable pointer target at town scale, still bounded to nearby roads.
       const center = map.getCenter();
       const pixel = map.latLngToContainerPoint(center);
-      const tolerance = Math.min(25, Math.max(2, map.distance(center, map.containerPointToLatLng(pixel.add([18,0])))));
-      const route = state.roadNetwork?.route(points.map(p => [p.lng,p.lat]), tolerance);
+      return Math.min(50, Math.max(5, map.distance(center, map.containerPointToLatLng(pixel.add([22,0])))));
+    }
+
+    function nearestRoadPoint(point){
+      return state.roadNetwork?.nearest([point.lng,point.lat],roadSnapTolerance());
+    }
+
+    function traceRoadPoints(points){
+      const route = state.roadNetwork?.route(points.map(p => [p.lng,p.lat]), roadSnapTolerance());
       if(!route) return null;
       const path = route.coordinates.map(p => L.latLng(p[1],p[0]));
       const distances = polylineVertexDistances(path);
@@ -4348,7 +4354,8 @@
 
     function updateRoadOverlay(){
       if(!state.roadLayer) return;
-      const visible = $("snapRoads").checked && map.getZoom() >= 16;
+      const visible = $("snapRoads").checked;
+      state.roadLayer.setStyle({weight:map.getZoom() >= 16 ? 3 : 1.5});
       if(visible) state.roadLayer.addTo(map);
       else map.removeLayer(state.roadLayer);
     }
@@ -4366,27 +4373,43 @@
           style:{color:"#0ea5e9",weight:2,opacity:.6},
           attribution:'Road centerlines: <a href="https://www.arcgis.com/home/item.html?id=f8cca09665b448709b6073b4ccb25c59">NJOGIS</a>'});
         updateRoadOverlay();
-        setText("roadStatus", "NJOGIS centerlines ready • Snap applies to new drawings.");
+        setText("roadStatus", $("snapRoads").checked
+          ? "Draw or drag a numbered point near a blue road to snap."
+          : "Freehand mode. Draw or drag points without road snapping.");
       }catch(error){
         console.warn("Road centerlines unavailable", error);
         setText("roadStatus", "Centerlines unavailable. Reload to retry, or uncheck Snap to roads for freehand.");
       }
     }
 
-    $("blockViewBtn").addEventListener("click", () => {
-      map.setZoom(19);
-      setText("roadStatus", "Block view • Pan to your road. Aerial/Streets offer finer basemap detail.");
-      if(window.matchMedia("(max-width: 1180px)").matches){
-        $("map").scrollIntoView({behavior:"smooth",block:"start"});
-      }
-    });
     $("snapRoads").addEventListener("change", () => {
       updateRoadOverlay();
+      clearSnapPreview();
       setText("roadStatus", $("snapRoads").checked
-        ? (state.roadNetwork ? "Road snapping on for new drawings. Add points to choose your route." : "Centerlines unavailable or loading. Uncheck for freehand.")
-        : "Freehand mode for new drawings. Existing profiles are unchanged.");
+        ? (state.roadNetwork ? "Draw or drag a numbered point near a blue road to snap." : "Centerlines unavailable or loading. Uncheck for freehand.")
+        : "Freehand mode. Draw or drag points without road snapping.");
     });
     map.on("zoomend", updateRoadOverlay);
+    function clearSnapPreview(){
+      if(state.snapPreview) map.removeLayer(state.snapPreview);
+      state.snapPreview = null;
+    }
+    function showSnapPreview(point){
+      const snap = nearestRoadPoint(point);
+      if(!snap){clearSnapPreview();return;}
+      const location = L.latLng(snap.coordinate[1],snap.coordinate[0]);
+      if(!state.snapPreview){
+        state.snapPreview = L.circleMarker(location, {radius:7,color:"#fff",weight:2,
+          fillColor:"#0ea5e9",fillOpacity:1,interactive:false,pane:"roadCenterlines"}).addTo(map);
+      }else state.snapPreview.setLatLng(location);
+      const label = document.createElement("span");
+      label.textContent = `Snap: ${snap.edge.name}`;
+      state.snapPreview.unbindTooltip().bindTooltip(label,{permanent:true,direction:"top",offset:[0,-8]}).openTooltip();
+    }
+    map.on("mousemove", event => {
+      if(state.drawMode && state.drawingRoadSnapped) showSnapPreview(event.latlng);
+    });
+    map.on("mouseout", clearSnapPreview);
     new ResizeObserver(entries => {
       $("shell").style.setProperty("--actual-map-control-h", `${entries[0].target.getBoundingClientRect().height}px`);
     }).observe(document.querySelector(".mapControl"));
@@ -4620,7 +4643,7 @@
       map:{
         title:"Map",
         tourStep:1,
-        body:`<p>Choose the background that makes the road easiest to recognize. <strong>Block view</strong> zooms into the current map center; use <strong>Aerial</strong> or <strong>Streets</strong> for finer detail. All backgrounds support close-up zoom, but enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows NJOGIS centerlines at close zoom and applies to new drawings. The red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
+        body:`<p>Use the map's +/− controls, scroll or pinch to zoom. <strong>Aerial</strong> or <strong>Streets</strong> provide finer detail. Enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows blue NJOGIS centerlines and works when drawing or dragging numbered points. The red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
       },
       profile:{
         title:"Road Profile",
@@ -6071,6 +6094,7 @@
     const SECTION_COLORS = ["#22d3ee","#a78bfa","#fbbf24","#34d399","#f472b6","#fb923c","#60a5fa","#e879f9"];
 
     function removePendingDrawing(){
+      clearSnapPreview();
       state.pendingMarkers.forEach(marker => map.removeLayer(marker));
       state.pendingMarkers = [];
       if(state.pendingLine) map.removeLayer(state.pendingLine);
@@ -6198,25 +6222,49 @@
           if(idx !== null) selectProfileIndex(idx, true, true);
         });
         marker.on("drag", () => {
-          if(state.activeRoadSnapped) return;
+          if($("snapRoads").checked){
+            showSnapPreview(marker.getLatLng());
+            return;
+          }
           const pts = state.markers.map(m => m.getLatLng());
           state.line.setLatLngs(pts);
         });
         marker.on("dragend", () => {
+          clearSnapPreview();
           const pts = state.markers.map(m => m.getLatLng());
-          if(state.activeRoadSnapped){
-            const route = traceRoadPoints(pts);
-            if(!route || route.path.length < 2){
+          if($("snapRoads").checked){
+            const snap = nearestRoadPoint(marker.getLatLng());
+            if(!snap){
               marker.setLatLng(previousPosition);
-              setText("roadStatus", "Move the point closer to a connected road. Previous profile kept.");
+              setText("roadStatus", "No nearby centerline. Point kept in place; move closer to a blue road.");
               return;
             }
+            const snappedPoint = L.latLng(snap.coordinate[1],snap.coordinate[0]);
+            pts[state.markers.indexOf(marker)] = snappedPoint;
+            const route = traceRoadPoints(pts);
+            if(!route || route.path.length < 2){
+              if(state.activeRoadSnapped || (route && route.path.length < 2)){
+                marker.setLatLng(previousPosition);
+                setText("roadStatus", "No connected route to that point. Previous road profile kept.");
+                return;
+              }
+              // Snap an existing freehand endpoint independently. Do not claim
+              // the entire profile follows roads until all controls can route.
+              marker.setLatLng(snappedPoint);
+              state.line.setLatLngs(pts);
+              state.activeVertexDistances = polylineVertexDistances(pts);
+              runProfile(pts);
+              setText("roadStatus", `Point snapped to ${snap.edge.name}. Line remains freehand until the other points are on connected roads.`);
+              return;
+            }
+            state.activeRoadSnapped = true;
             state.markers.forEach((m,i) => m.setLatLng(route.points[i]));
             state.line.setLatLngs(route.path);
             state.activeVertexDistances = route.vertexDistances;
             runProfile(route.path);
             setText("roadStatus", "Profile follows road centerlines. Add points to choose a different route.");
           }else{
+            state.activeRoadSnapped = false;
             state.activeVertexDistances = polylineVertexDistances(pts);
             state.line.setLatLngs(pts);
             runProfile(pts);
@@ -6847,10 +6895,10 @@
         $("finishDrawBtn").hidden = false;
         $("drawBtn").textContent = "Finish line";
         setText("chartStatus", `${state.pendingPoints.length} vertices ready`);
-        setText("drawPromptText", "Add another point, or finish this line.");
+        setText("drawPromptText", state.drawingRoadSnapped ? "Snapped to centerlines. Add another road point, or finish." : "Add another point, or finish this line.");
       }else{
         setText("chartStatus", "Choose another point");
-        setText("drawPromptText", "Add the next point along the road.");
+        setText("drawPromptText", state.drawingRoadSnapped ? "Point snapped to centerline. Add the next road point." : "Add the next point along the road.");
       }
     });
 
