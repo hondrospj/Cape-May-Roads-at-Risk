@@ -3956,6 +3956,14 @@
     }
 
     #profileChart{touch-action:pan-y}
+    .roadControls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .roadControls label{display:flex;align-items:center;gap:7px;min-height:36px;font-size:12px;cursor:pointer}
+    .roadControls input{width:17px;height:17px;margin:0;accent-color:#22d3ee}
+    .roadControls button{min-height:36px;font-size:12px}
+    .roadStatus{margin-top:4px;font-size:11px;line-height:1.4;opacity:.8;overflow-wrap:anywhere}
+    @media (min-width:1181px){
+      .shell:not(.paneExpanded) .rightStack{top:calc(var(--ui-gap) + var(--actual-map-control-h, 190px) + 10px)}
+    }
 
     @media (min-width:301px) and (max-width:430px){
       .crossSectionPane .toolTitle{
@@ -4003,6 +4011,11 @@
         <button data-basemap="osm" class="secondary" type="button">Streets</button>
         <button data-basemap="dark" class="secondary" type="button">Dark</button>
       </div>
+      <div class="roadControls">
+        <label><input id="snapRoads" type="checkbox" checked aria-describedby="roadStatus">Snap to roads</label>
+        <button id="blockViewBtn" class="secondary" type="button">Block view</button>
+      </div>
+      <div id="roadStatus" class="roadStatus" role="status">Loading road centerlines…</div>
     </section>
 
     <aside class="rightStack" aria-label="Roads at Risk tools">
@@ -4204,6 +4217,7 @@
 
   <script type="module">
     import * as GeoTIFF from "https://cdn.jsdelivr.net/npm/geotiff@2.1.3/+esm";
+    import { buildRoadNetwork } from "./road-centerlines.mjs";
 
     const FT_PER_M = 3.280839895;
     const DEM_URL = "cape_may_dem_5ft_cog.tif";
@@ -4222,6 +4236,12 @@
       boundsMerc:null,
       drawMode:false,
       pendingPoints:[],
+      roadNetwork:null,
+      roadLayer:null,
+      drawingRoadSnapped:false,
+      pendingRoadRoute:null,
+      activeRoadSnapped:false,
+      activeVertexDistances:[],
       markers:[],
       line:null,
       riskLine:null,
@@ -4272,26 +4292,26 @@
       }
     };
 
-    const map = L.map("map", { zoomControl:true, preferCanvas:true });
+    const map = L.map("map", { zoomControl:true, preferCanvas:true, maxZoom:21 });
     const basemaps = {
       current:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:16,
+        maxZoom:21, maxNativeZoom:16,
         attribution:"Tiles &copy; Esri"
       }),
       satellite:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:20,
+        maxZoom:21, maxNativeZoom:19,
         attribution:"Tiles &copy; Esri"
       }),
       terrain:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:20,
+        maxZoom:21, maxNativeZoom:19,
         attribution:"Tiles &copy; Esri"
       }),
       osm:L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        maxZoom:19,
+        maxZoom:21, maxNativeZoom:19,
         attribution:"&copy; OpenStreetMap contributors"
       }),
       dark:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:16,
+        maxZoom:21, maxNativeZoom:16,
         attribution:"Tiles &copy; Esri"
       })
     };
@@ -4313,6 +4333,63 @@
     state.savedLineLayers = new Map();
 
     function $(id){ return document.getElementById(id); }
+    function traceRoadPoints(points){
+      // Screen-size tolerance, capped at 25 m to avoid jumping across blocks.
+      const center = map.getCenter();
+      const pixel = map.latLngToContainerPoint(center);
+      const tolerance = Math.min(25, Math.max(2, map.distance(center, map.containerPointToLatLng(pixel.add([18,0])))));
+      const route = state.roadNetwork?.route(points.map(p => [p.lng,p.lat]), tolerance);
+      if(!route) return null;
+      const path = route.coordinates.map(p => L.latLng(p[1],p[0]));
+      const distances = polylineVertexDistances(path);
+      return {path, points:route.waypoints.map(p => L.latLng(p[1],p[0])),
+        vertexDistances:route.waypointIndices.map(i => distances[i])};
+    }
+
+    function updateRoadOverlay(){
+      if(!state.roadLayer) return;
+      const visible = $("snapRoads").checked && map.getZoom() >= 16;
+      if(visible) state.roadLayer.addTo(map);
+      else map.removeLayer(state.roadLayer);
+    }
+
+    async function loadRoadCenterlines(){
+      try{
+        const response = await fetch("cape_may_road_centerlines.geojson");
+        if(!response.ok) throw new Error(`Centerlines HTTP ${response.status}`);
+        const data = await response.json();
+        state.roadNetwork = buildRoadNetwork(data);
+        map.createPane("roadCenterlines");
+        map.getPane("roadCenterlines").style.zIndex = 410;
+        map.getPane("roadCenterlines").style.pointerEvents = "none";
+        state.roadLayer = L.geoJSON(data, {pane:"roadCenterlines", interactive:false,
+          style:{color:"#0ea5e9",weight:2,opacity:.6},
+          attribution:'Road centerlines: <a href="https://www.arcgis.com/home/item.html?id=f8cca09665b448709b6073b4ccb25c59">NJOGIS</a>'});
+        updateRoadOverlay();
+        setText("roadStatus", "NJOGIS centerlines ready • Snap applies to new drawings.");
+      }catch(error){
+        console.warn("Road centerlines unavailable", error);
+        setText("roadStatus", "Centerlines unavailable. Reload to retry, or uncheck Snap to roads for freehand.");
+      }
+    }
+
+    $("blockViewBtn").addEventListener("click", () => {
+      map.setZoom(19);
+      setText("roadStatus", "Block view • Pan to your road. Aerial/Streets offer finer basemap detail.");
+      if(window.matchMedia("(max-width: 1180px)").matches){
+        $("map").scrollIntoView({behavior:"smooth",block:"start"});
+      }
+    });
+    $("snapRoads").addEventListener("change", () => {
+      updateRoadOverlay();
+      setText("roadStatus", $("snapRoads").checked
+        ? (state.roadNetwork ? "Road snapping on for new drawings. Add points to choose your route." : "Centerlines unavailable or loading. Uncheck for freehand.")
+        : "Freehand mode for new drawings. Existing profiles are unchanged.");
+    });
+    map.on("zoomend", updateRoadOverlay);
+    new ResizeObserver(entries => {
+      $("shell").style.setProperty("--actual-map-control-h", `${entries[0].target.getBoundingClientRect().height}px`);
+    }).observe(document.querySelector(".mapControl"));
     function setText(id, text){ const el = $(id); if(el) el.textContent = text; }
     function fmtFt(v, digits=1){ return Number.isFinite(v) ? `${v.toFixed(digits)} ft` : "-"; }
     function fmtLen(v){ return Number.isFinite(v) ? v >= 5280 ? `${(v/5280).toFixed(2)} mi` : `${Math.round(v)} ft` : "-"; }
@@ -4543,12 +4620,12 @@
       map:{
         title:"Map",
         tourStep:1,
-        body:`<p>Choose the background that makes the road easiest to recognize. <strong>Light</strong> keeps the interface quiet, <strong>Aerial</strong> shows real-world features, <strong>Relief</strong> emphasizes terrain, <strong>Streets</strong> favors labels, and <strong>Dark</strong> reduces glare.</p><p>The red outline is the town boundary. The shaded elevation surface and every road-profile calculation stay the same when you change basemaps—the buttons only change the visual reference underneath.</p>`
+        body:`<p>Choose the background that makes the road easiest to recognize. <strong>Block view</strong> zooms into the current map center; use <strong>Aerial</strong> or <strong>Streets</strong> for finer detail. All backgrounds support close-up zoom, but enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows NJOGIS centerlines at close zoom and applies to new drawings. The red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
       },
       profile:{
         title:"Road Profile",
         tourStep:2,
-        body:`<p>Press <strong>Draw</strong> and click along the road. Every click adds a numbered vertex—<strong>1, 2, 3, 4</strong>, and so on—so one profile can bend through as many points as needed. Press <strong>Finish line</strong> when the route is complete; the same numbers appear on the map and graph.</p><p>Draw again to retain the earlier profile and add another comparison line. Drag any vertex on the newest line to refine it. The summary and pink exposure layer describe that active line.</p>`
+        body:`<p>With <strong>Snap to roads</strong> on, press <strong>Draw</strong> and tap near a road. The profile follows the shortest connected centerline between numbered points, including curves. Add points to choose your route, check the highlighted path, then press <strong>Finish line</strong>. Uncheck snapping for a freehand cross section.</p><p>Draw again to retain the earlier profile. Drag a numbered point on the newest line to refine it; snapped points must stay near connected roads. These are bare-earth elevation profiles, not safe-driving directions or surveyed bridge-deck heights.</p>`
       },
       outlook:{
         title:"Flood Outlook",
@@ -5508,7 +5585,7 @@
       const activeSection = profile.length ? {
         id:"active",
         vertexLabels:activeLabels,
-        vertexDistances:polylineVertexDistances(activePoints),
+        vertexDistances:state.activeVertexDistances,
         color:state.activeSectionColor,
         profile
       } : null;
@@ -5999,6 +6076,7 @@
       if(state.pendingLine) map.removeLayer(state.pendingLine);
       state.pendingLine = null;
       state.pendingPoints = [];
+      state.pendingRoadRoute = null;
     }
 
     function removeActiveSection(){
@@ -6012,6 +6090,8 @@
       state.profile = [];
       state.activeSavedLineId = null;
       state.activeVertexLabels = [];
+      state.activeVertexDistances = [];
+      state.activeRoadSnapped = false;
       resetInspection();
     }
 
@@ -6024,7 +6104,7 @@
           opacity:.82,
           lineCap:"round"
         }).addTo(comparisonLayerGroup);
-        section.points.forEach((point, index) => {
+        (section.controlPoints || section.points).forEach((point, index) => {
           const label = section.vertexLabels[index];
           L.marker(point, {
             icon:markerIcon(label, section.color),
@@ -6042,7 +6122,8 @@
       state.comparisonSections.push({
         id:`drawn-${labels[0]}-${labels[labels.length - 1]}`,
         vertexLabels:labels,
-        vertexDistances:polylineVertexDistances(pts),
+        vertexDistances:state.activeVertexDistances.slice(),
+        controlPoints:state.markers.map(marker => marker.getLatLng()),
         color:state.activeSectionColor,
         points:pts.map(point => L.latLng(point.lat, point.lng)),
         profile:state.profile.slice()
@@ -6072,7 +6153,7 @@
       });
     }
 
-    function drawSection(pointsOrA, b=null, fit=false, savedLineId=null, append=false){
+    function drawSection(pointsOrA, b=null, fit=false, savedLineId=null, append=false, options={}){
       const points = (Array.isArray(pointsOrA) ? pointsOrA : [pointsOrA, b])
         .filter(Boolean)
         .map(point => L.latLng(point.lat, point.lng));
@@ -6084,6 +6165,9 @@
         clearSection();
       }
       state.activeSavedLineId = savedLineId;
+      const path = options.path || points;
+      state.activeRoadSnapped = !!options.roadSnapped;
+      state.activeVertexDistances = options.vertexDistances || polylineVertexDistances(points);
       const startLabel = state.nextEndpointNumber;
       state.activeVertexLabels = points.map((_, index) => startLabel + index);
       state.nextEndpointNumber += points.length;
@@ -6095,7 +6179,7 @@
         zIndexOffset:2000,
         title:`Section vertex ${state.activeVertexLabels[index]}`
       }).addTo(map));
-      state.line = L.polyline(points, {
+      state.line = L.polyline(path, {
         color:state.activeSectionColor,
         weight:5,
         opacity:.95,
@@ -6106,22 +6190,41 @@
         if(idx !== null) selectProfileIndex(idx, true, true);
       });
       for(const marker of state.markers){
+        let previousPosition = marker.getLatLng();
+        marker.on("dragstart", () => { previousPosition = marker.getLatLng(); });
         marker.on("click", event => {
           if(event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
           const idx = nearestProfileIndex(marker.getLatLng());
           if(idx !== null) selectProfileIndex(idx, true, true);
         });
         marker.on("drag", () => {
+          if(state.activeRoadSnapped) return;
           const pts = state.markers.map(m => m.getLatLng());
           state.line.setLatLngs(pts);
         });
         marker.on("dragend", () => {
           const pts = state.markers.map(m => m.getLatLng());
-          runProfile(pts);
+          if(state.activeRoadSnapped){
+            const route = traceRoadPoints(pts);
+            if(!route || route.path.length < 2){
+              marker.setLatLng(previousPosition);
+              setText("roadStatus", "Move the point closer to a connected road. Previous profile kept.");
+              return;
+            }
+            state.markers.forEach((m,i) => m.setLatLng(route.points[i]));
+            state.line.setLatLngs(route.path);
+            state.activeVertexDistances = route.vertexDistances;
+            runProfile(route.path);
+            setText("roadStatus", "Profile follows road centerlines. Add points to choose a different route.");
+          }else{
+            state.activeVertexDistances = polylineVertexDistances(pts);
+            state.line.setLatLngs(pts);
+            runProfile(pts);
+          }
         });
       }
-      if(fit) map.fitBounds(L.latLngBounds(points).pad(.35));
-      runProfile(points);
+      if(fit) map.fitBounds(L.latLngBounds(path).pad(.35));
+      runProfile(path);
     }
 
     function runProfile(points){
@@ -6140,7 +6243,13 @@
     }
 
     function setDrawMode(active){
+      if(active && $("snapRoads").checked && !state.roadNetwork){
+        setText("roadStatus", "Centerlines unavailable or loading. Wait, or uncheck Snap to roads for freehand.");
+        return;
+      }
       state.drawMode = active;
+      state.drawingRoadSnapped = active && $("snapRoads").checked;
+      $("snapRoads").disabled = active;
       removePendingDrawing();
       $("drawBtn").classList.toggle("active", active);
       $("drawBtn").textContent = active ? "Add points" : "Draw";
@@ -6148,7 +6257,7 @@
       const prompt = $("drawPrompt");
       if(prompt){
         prompt.hidden = !active;
-        setText("drawPromptText", "Tap the map to choose the first point.");
+        setText("drawPromptText", state.drawingRoadSnapped ? "Tap near a road centerline. Zoom in for precision." : "Freehand: tap the map to choose the first point.");
       }
       const finishButton = $("finishDrawBtn");
       if(finishButton) finishButton.hidden = true;
@@ -6157,8 +6266,10 @@
     function finishPendingLine(){
       if(!state.drawMode || state.pendingPoints.length < 2) return;
       const points = state.pendingPoints.map(point => L.latLng(point.lat, point.lng));
+      const route = state.pendingRoadRoute;
+      const options = route ? {path:route.path, vertexDistances:route.vertexDistances, roadSnapped:true} : {};
       setDrawMode(false);
-      drawSection(points, null, false, null, true);
+      drawSection(points, null, false, null, true, options);
       if(window.matchMedia("(max-width: 1180px)").matches){
         window.setTimeout(() => $("crossSectionPane").scrollIntoView({ behavior:"smooth", block:"start" }), 120);
       }
@@ -6365,7 +6476,6 @@
     }
 
     function currentLineLatLngs(){
-      if(state.markers.length >= 2) return state.markers.map(marker => marker.getLatLng());
       const linePoints = state.line?.getLatLngs?.();
       return Array.isArray(linePoints) && linePoints.length >= 2 ? linePoints.slice() : null;
     }
@@ -6477,6 +6587,9 @@
         a:{ lat:a.lat, lng:a.lng },
         b:{ lat:b.lat, lng:b.lng },
         points:pts.map(point => ({ lat:point.lat, lng:point.lng })),
+        controlPoints:state.markers.map(marker => ({lat:marker.getLatLng().lat, lng:marker.getLatLng().lng})),
+        roadSnapped:state.activeRoadSnapped,
+        vertexDistances:state.activeVertexDistances.slice(),
         createdAt:new Date().toISOString()
       });
       state.savedLines = state.savedLines.slice(0, 12);
@@ -6493,7 +6606,10 @@
       setThreshold(toDisplayDatum(line.thresholdFt ?? state.thresholdFt));
       const points = (line.points?.length ? line.points : [line.a, line.b])
         .map(point => L.latLng(point.lat, point.lng));
-      drawSection(points, null, true, line.id);
+      const controls = line.controlPoints?.length >= 2 ? line.controlPoints : points;
+      drawSection(controls, null, true, line.id, false, {
+        path:points, roadSnapped:line.roadSnapped, vertexDistances:line.vertexDistances
+      });
       setExportStatus(`Loaded "${line.name || "saved line"}".`);
     }
 
@@ -6693,17 +6809,32 @@
         if(idx !== null) selectProfileIndex(idx, true, true);
         return;
       }
-      state.pendingPoints.push(event.latlng);
+      let point = event.latlng;
+      if(state.drawingRoadSnapped){
+        const route = traceRoadPoints([...state.pendingPoints, point]);
+        if(!route || (state.pendingPoints.length && route.path.length < 2)){
+          setText("drawPromptText", "No connected road here. Zoom in and tap closer to a centerline.");
+          return;
+        }
+        point = route.points[route.points.length-1];
+        if(state.pendingPoints.length && map.distance(state.pendingPoints.at(-1),point) < .1){
+          setText("drawPromptText", "Choose a different road point, or finish this line.");
+          return;
+        }
+        state.pendingRoadRoute = route;
+      }
+      state.pendingPoints.push(point);
+      const path = state.pendingRoadRoute?.path || state.pendingPoints;
       const color = SECTION_COLORS[state.comparisonSections.length % SECTION_COLORS.length];
       const label = state.nextEndpointNumber + state.pendingPoints.length - 1;
-      state.pendingMarkers.push(L.marker(event.latlng, {
+      state.pendingMarkers.push(L.marker(point, {
         icon:markerIcon(label, color),
         interactive:false,
         title:`Section vertex ${label}`
       }).addTo(map));
       if(state.pendingPoints.length >= 2){
         if(!state.pendingLine){
-          state.pendingLine = L.polyline(state.pendingPoints, {
+          state.pendingLine = L.polyline(path, {
             color,
             weight:5,
             opacity:.88,
@@ -6711,7 +6842,7 @@
             dashArray:"8 6"
           }).addTo(map);
         }else{
-          state.pendingLine.setLatLngs(state.pendingPoints);
+          state.pendingLine.setLatLngs(path);
         }
         $("finishDrawBtn").hidden = false;
         $("drawBtn").textContent = "Finish line";
@@ -6734,6 +6865,7 @@
       renderChart(state.profile);
     });
     loadSavedLines();
+    loadRoadCenterlines();
     loadApp().catch(err => {
       console.error(err);
       setReady(false, "Unavailable");
