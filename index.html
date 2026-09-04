@@ -3977,6 +3977,83 @@
         min-width:0;
       }
     }
+    /* Keep the profile's primary actions prominent at every screen size. */
+    .mapModes{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .crossSectionPane .toolTitleRow,
+    .shell.paneExpanded .crossSectionPane .toolTitleRow{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      align-items:center;
+      gap:10px;
+    }
+
+    .crossSectionPane .toolTitle,
+    .shell.paneExpanded .crossSectionPane .toolTitle{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      width:100%;
+      white-space:normal;
+    }
+
+    .crossSectionPane .titleDatumToggle{
+      width:min(164px,100%);
+      margin-left:0;
+    }
+
+    .crossSectionPane .paneActions,
+    .shell.paneExpanded .crossSectionPane .paneActions{
+      display:flex;
+      width:auto;
+      gap:6px;
+    }
+
+    .profileActions{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      flex:0 0 auto;
+      gap:10px;
+      margin-bottom:14px;
+    }
+
+    .profileActions .drawAction,
+    .shell.paneExpanded .profileActions .drawAction{
+      width:100%;
+      min-width:0;
+      min-height:52px;
+      padding:12px 10px;
+      border:2px solid;
+      border-radius:12px;
+      font-size:16px;
+      font-weight:900;
+      box-shadow:0 4px 12px rgba(0,0,0,.24);
+    }
+
+    #drawBtn{
+      background:#7dd3fc;
+      border-color:#bae6fd;
+      color:#082f49;
+    }
+
+    #drawBtn.active{
+      background:#38bdf8;
+      border-color:#fff;
+      box-shadow:inset 0 0 0 2px #075985,0 4px 12px rgba(0,0,0,.24);
+    }
+
+    #clearProfilesBtn{
+      background:#fda4af;
+      border-color:#fecdd3;
+      color:#4c0519;
+    }
+
+    .profileActions .drawAction:focus-visible{
+      outline:3px solid #fff;
+      outline-offset:3px;
+    }
   </style>
 </head>
 <body>
@@ -4006,11 +4083,8 @@
         </div>
       </div>
       <div class="mapModes" aria-label="Basemap">
-        <button data-basemap="current" class="active" type="button">Light</button>
-        <button data-basemap="satellite" class="secondary" type="button">Aerial</button>
-        <button data-basemap="terrain" class="secondary" type="button">Relief</button>
-        <button data-basemap="osm" class="secondary" type="button">Streets</button>
-        <button data-basemap="dark" class="secondary" type="button">Dark</button>
+        <button data-basemap="satellite" class="active" type="button" aria-pressed="true">Aerial</button>
+        <button data-basemap="osm" class="secondary" type="button" aria-pressed="false">Streets</button>
       </div>
       <div class="roadControls">
         <label><input id="snapRoads" type="checkbox" checked aria-describedby="roadStatus">Snap to roads</label>
@@ -4035,11 +4109,14 @@
             </span>
           </div>
           <div class="paneActions">
-            <button id="drawBtn" class="drawAction" type="button">Draw</button>
-            <button id="clearProfilesBtn" class="drawAction secondary" type="button" aria-label="Clear all profiles">Clear</button>
             <button class="paneHelpBtn" type="button" data-help-key="profile" aria-label="Explain the road profile pane" title="Explain the road profile pane">?</button>
             <button class="expandBtn secondary" type="button" data-expand-pane="crossSectionPane" aria-controls="crossSectionPane" aria-expanded="false" aria-label="Expand cross section" title="Expand cross section">+</button>
           </div>
+        </div>
+
+        <div class="profileActions" role="group" aria-label="Road profile actions">
+          <button id="drawBtn" class="drawAction" type="button" aria-pressed="false">Draw</button>
+          <button id="clearProfilesBtn" class="drawAction" type="button" aria-label="Clear all profiles">Clear</button>
         </div>
 
         <div class="crossTop">
@@ -4269,7 +4346,7 @@
       datum:"navd88",
       profileXZoom:null,
       profileYZoom:null,
-      activeBasemap:"current",
+      activeBasemap:"satellite",
       projectionScenario:"intermediate"
     };
 
@@ -4296,28 +4373,16 @@
 
     const map = L.map("map", { zoomControl:true, preferCanvas:true, maxZoom:21 });
     const basemaps = {
-      current:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:21, maxNativeZoom:16,
-        attribution:"Tiles &copy; Esri"
-      }),
       satellite:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:21, maxNativeZoom:19,
-        attribution:"Tiles &copy; Esri"
-      }),
-      terrain:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}", {
         maxZoom:21, maxNativeZoom:19,
         attribution:"Tiles &copy; Esri"
       }),
       osm:L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         maxZoom:21, maxNativeZoom:19,
         attribution:"&copy; OpenStreetMap contributors"
-      }),
-      dark:L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}", {
-        maxZoom:21, maxNativeZoom:16,
-        attribution:"Tiles &copy; Esri"
       })
     };
-    basemaps.current.addTo(map);
+    basemaps.satellite.addTo(map);
 
     const boundaryLayer = L.geoJSON(null, {
       style:{
@@ -4548,8 +4613,7 @@
 
     function updateHillshadeOpacity(){
       if(!state.hillshadeOverlay) return;
-      const reliefMode = state.activeBasemap === "terrain";
-      state.hillshadeOverlay.setOpacity(reliefMode ? .58 : .38);
+      state.hillshadeOverlay.setOpacity(.38);
     }
 
     function togglePaneExpansion(paneId){
@@ -4677,7 +4741,7 @@
       {
         title:"Pick the clearest map",
         target:".mapControl",
-        body:`<p>Use <strong>Light</strong> for a clean working map, <strong>Aerial</strong> for recognizable buildings and pavement, <strong>Relief</strong> for terrain, <strong>Streets</strong> for labels, or <strong>Dark</strong> for low-glare viewing.</p><p>Changing the basemap never changes the elevation data, town boundary, profile, or risk result. It only changes what sits underneath your analysis.</p>`
+        body:`<p>Use <strong>Aerial</strong> for recognizable buildings and pavement, or <strong>Streets</strong> for road names and labels.</p><p>Changing the basemap never changes the elevation data, town boundary, profile, or risk result. It only changes what sits underneath your analysis.</p>`
       },
       {
         title:"Draw the road you care about",
@@ -5010,7 +5074,7 @@
     }
 
     function setBasemap(id){
-      const next = basemaps[id] ? id : "current";
+      const next = basemaps[id] ? id : "satellite";
       if(next === state.activeBasemap && map.hasLayer(basemaps[next])) return;
       Object.entries(basemaps).forEach(([key, layer]) => {
         if(key !== next && map.hasLayer(layer)) map.removeLayer(layer);
@@ -5019,6 +5083,7 @@
       state.activeBasemap = next;
       document.querySelectorAll("[data-basemap]").forEach(button => {
         const active = button.dataset.basemap === next;
+        button.setAttribute("aria-pressed", String(active));
         button.classList.toggle("active", active);
         button.classList.toggle("secondary", !active);
       });
@@ -6306,6 +6371,7 @@
       $("snapRoads").disabled = active;
       removePendingDrawing();
       $("drawBtn").classList.toggle("active", active);
+      $("drawBtn").setAttribute("aria-pressed", String(active));
       $("drawBtn").textContent = active ? "Add points" : "Draw";
       map.getContainer().style.cursor = active ? "crosshair" : "";
       const prompt = $("drawPrompt");

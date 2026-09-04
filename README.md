@@ -2,7 +2,7 @@
 
 Static GitHub Pages app for drawing road and cross-section profiles through the Cape May municipal DEM.
 
-The interface follows the North Wildwood Roads at Risk reference: threshold presets, NAVD88/MLLW conversion, terrain and hillshade views, saved multi-line cross sections, flood-history and future-frequency charts, and CSV/Shapefile exports.
+The interface follows the North Wildwood Roads at Risk reference: threshold presets, NAVD88/MLLW conversion, Aerial and Streets basemaps with terrain hillshade, saved multi-line cross sections, flood-history and future-frequency charts, and CSV/Shapefile exports. Aerial is the default map; prominent Draw and Clear controls sit below the Road Profile heading.
 
 Municipal constants:
 
@@ -20,7 +20,7 @@ Terrain source: USGS 3DEP Bare Earth DEM Dynamic ImageServer, clipped to the Cap
 - Dragging a freehand endpoint snaps that endpoint independently; once all control points can connect, the whole profile follows the roads. Until then, status explicitly says the remaining line is freehand. A previously road-traced profile rejects disconnected or off-road moves and keeps the previous profile. Snapping uses a 22-screen-pixel tolerance capped at 50 meters (minimum 5 meters). The mouse/drag preview shows the target road and snap location. Dashed orange road guides stay visible at town zoom.
 - Saved profiles and CSV/Shapefile exports preserve the traced geometry. Older saved freehand lines remain supported.
 - Highlighting, snap targets and newly traced road routes are restricted to the actual Cape May City polygon in `cape_may_boundary.geojson`, not a rectangular extent. Cross-boundary roads are trimmed at every polygon intersection. Clicks and drags outside the city cannot snap, even within the normal snap tolerance. Routes cannot use roads outside the city as shortcuts. If the boundary cannot load, road snapping remains unavailable (no unfiltered fallback). Existing saved/freehand profiles are not deleted or silently rewritten.
-- Use ordinary map +/−, scroll or pinch controls; all basemaps allow zoom through 21. Light/Dark overzoom their native level 16 tiles; Aerial/Relief/Streets use native tiles through 19. Overzoom does not increase source imagery or DEM resolution (5 feet).
+- Use ordinary map +/−, scroll or pinch controls; Aerial and Streets allow zoom through 21, using native tiles through 19. Overzoom does not increase source imagery or DEM resolution (5 feet).
 - These are terrain profiles, **not safe-driving directions**, turn-restriction-aware routing, or surveyed pavement elevations. Review the highlighted route; centerline positional error, bridges and bare-earth DEM limitations still apply.
 
 ### Centerline provenance
