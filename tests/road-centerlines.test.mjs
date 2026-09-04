@@ -33,6 +33,23 @@ test('duplicates are deduplicated and MultiLineStrings supported', () => {
   assert.equal(n.route([[0,0],[0,0]],1).coordinates.length,1);
   assert.equal(n.route([[0,0],[.001,0]],1).coordinates.length,2);
 });
+test('submillimeter source segments preserve a direct route instead of a detour', () => {
+  const a=[0,0], b=[.001,0], c=[.001000005,0], d=[.002,0];
+  const n=network(line([a,b,c,d]),line([a,[0,.002],[.002,.002],d]));
+  const route=n.route([[.0005,0],[.0015,0]],1);
+  assert.ok(route && route.lengthM>110 && route.lengthM<112);
+  assert.ok(route.coordinates.every(p=>p[1]===0));
+  const snap=n.nearest([.0010000025,0],.001);
+  assert.ok(snap && snap.coordinate.every(Number.isFinite));
+});
+test('repeated source vertices preserve connectivity without zero-length snap division', () => {
+  const n=network(line([[0,0],[.001,0],[.001,0],[.002,0]]));
+  assert.equal(n.segmentCount,2);
+  const route=n.route([[.0005,0],[.0015,0]],1);
+  assert.ok(route && route.lengthM>110 && route.lengthM<112);
+  assert.ok(route.coordinates.every(p=>p.every(Number.isFinite)));
+  assert.ok(n.nearest([.001,0],1).coordinate.every(Number.isFinite));
+});
 test('bundled dataset is complete and routable along real source curves', () => {
   const data=JSON.parse(readFileSync(new URL('../cape_may_road_centerlines.geojson',import.meta.url)));
   assert.equal(data.features.length,748);

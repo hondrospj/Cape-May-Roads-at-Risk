@@ -34,11 +34,12 @@ export function buildRoadNetwork(collection, {contains=null}={}){
       for(let i=1; i<coordinates.length; i++){
         const a = project(coordinates[i-1]), b = project(coordinates[i]);
         const length = distance(a,b);
-        if(length < .001) continue;
         const edge = {a,b,length,from:ids[i-1],to:ids[i],name:feature.properties?.PRIMENAME || 'Road'};
-        edges.push(edge);
+        // Repeated and very close vertices still connect consecutive source
+        // nodes. Only zero-length geometry is excluded from snap projection.
         nodes.get(edge.from).links.push({id:edge.to,length});
         nodes.get(edge.to).links.push({id:edge.from,length});
+        if(length > 0) edges.push(edge);
       }
     }
   }

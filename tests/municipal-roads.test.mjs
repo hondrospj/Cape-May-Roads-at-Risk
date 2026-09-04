@@ -26,6 +26,16 @@ test('holes and concave boundaries split roads; no outside shortcut is routed',(
  const split=municipalRoads(collection([[.1,.8],[.9,.8]]),polygon([concave]));
  assert.equal(split.roads.features.length,2);
 });
+test('rounding along a municipal boundary remains snappable without admitting outside roads',()=>{
+ const line=[[0.1,-1.75e-10],[0.9,0]];
+ const {roads,contains}=municipalRoads(collection(line,[[.1,-1e-7],[.9,-1e-7]]),polygon([square]));
+ assert.equal(roads.features.length,1);
+ const point=[.3,-1.3125e-10];
+ assert.equal(contains(point),true);
+ assert.ok(buildRoadNetwork(roads,{contains}).nearest(point,1));
+ assert.equal([[.5,.5],[.5,-.1]].every(contains),false,'array callback index must not change containment tolerance');
+ assert.equal(contains([.5,-1e-7]),false);
+});
 test('boundary-aligned roads, tangency, disconnected multipolygons and empty boundary',()=>{
  const {roads}=municipalRoads(collection([[-1,0],[2,0]],[[-1,1],[0,1],[-1,2]]),polygon([square]));
  assert.deepEqual(roads.features.map(f=>f.geometry.coordinates),[[[0,0],[1,0]]]);
