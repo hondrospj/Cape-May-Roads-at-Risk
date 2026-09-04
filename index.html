@@ -1565,9 +1565,8 @@
 
     .shell.paneExpanded .floodHistoryPane .floodPane{
       flex:1 1 auto;
-      display:grid;
-      grid-template-rows:auto auto minmax(0,1fr);
-      overflow:hidden;
+      display:block;
+      overflow:auto;
       padding-bottom:4px;
     }
 
@@ -3631,6 +3630,11 @@
       min-height:0;
     }
 
+    .outlookChartsGrid > .scenarioRow,
+    .shell.paneExpanded .outlookChartsGrid > .scenarioRow{
+      margin:0;
+    }
+
     .outlookChartCard{
       display:flex;
       flex-direction:column;
@@ -3775,7 +3779,7 @@
       }
 
       .shell:not(.paneExpanded) .outlookChartsGrid{
-        grid-template-rows:repeat(2,minmax(205px,235px));
+        grid-template-rows:minmax(205px,235px) auto minmax(205px,235px);
         flex:0 0 auto;
       }
 
@@ -3786,16 +3790,12 @@
         max-height:175px;
       }
 
-      .shell.paneExpanded .floodHistoryPane .floodPane{
-        grid-template-rows:auto minmax(0,1fr) auto;
-      }
-
       .shell.paneExpanded .outlookChartsGrid{
-        grid-template-columns:repeat(2,minmax(0,1fr));
+        grid-template-columns:minmax(0,1fr);
       }
 
       .shell.paneExpanded .outlookChartCard{
-        min-height:0;
+        min-height:320px;
       }
 
       .shell.paneExpanded .outlookChartWrap{
@@ -4218,11 +4218,6 @@
         </div>
 
         <aside class="floodPane floodCharts">
-          <div class="scenarioRow" aria-label="Projection scenario">
-            <button data-scenario="low" class="secondary" type="button">Low</button>
-            <button data-scenario="intermediate" class="active" type="button">Intermediate</button>
-            <button data-scenario="high" class="secondary" type="button">High</button>
-          </div>
           <div class="outlookChartsGrid">
             <section class="outlookChartCard observedOutlookCard" aria-labelledby="observedOutlookTitle">
               <div class="outlookChartHeader">
@@ -4234,6 +4229,11 @@
               </div>
               <div class="tinyChartWrap outlookChartWrap observedChartWrap"><canvas id="observedAnnualChart"></canvas></div>
             </section>
+            <div class="scenarioRow" aria-label="Projection scenario">
+              <button data-scenario="low" class="secondary" type="button">Low</button>
+              <button data-scenario="intermediate" class="active" type="button">Intermediate</button>
+              <button data-scenario="high" class="secondary" type="button">High</button>
+            </div>
             <section class="outlookChartCard projectedOutlookCard" id="projectedOutlookCard" aria-labelledby="projectedOutlookTitle">
               <div class="outlookChartHeader">
                 <div>
