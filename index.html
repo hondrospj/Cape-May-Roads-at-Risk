@@ -3949,8 +3949,8 @@
 
     #profileChart{touch-action:pan-y}
     .roadControls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px}
-    .roadControls label{display:flex;align-items:center;gap:7px;min-height:36px;font-size:12px;cursor:pointer}
-    .roadControls input{width:17px;height:17px;margin:0;accent-color:#f59e0b}
+    .roadControls label{display:flex;align-items:center;gap:9px;min-height:44px;font-size:12px;cursor:pointer}
+    .roadControls input{width:21px;height:21px;margin:0;accent-color:#f59e0b;cursor:pointer}
     .roadControls label::after{content:"";width:24px;border-top:2px dashed #f59e0b}
     .roadStatus{margin-top:4px;font-size:11px;line-height:1.4;opacity:.8;overflow-wrap:anywhere}
     .roadStatus:empty{display:none}
@@ -4485,11 +4485,39 @@
     }
 
     $("snapRoads").addEventListener("change", () => {
+      const toggle = $("snapRoads");
+      let notice = "";
+      if(state.drawMode){
+        let route = null;
+        if(toggle.checked && !state.roadNetwork){
+          toggle.checked = false;
+          notice = "Roads are unavailable or loading. Continue freehand, or wait and try again.";
+        }else if(toggle.checked && state.pendingPoints.length){
+          route = traceRoadPoints(state.pendingPoints);
+          if(!route || (state.pendingPoints.length >= 2 && route.path.length < 2)
+            || route.points.some((point, index) => index > 0 && map.distance(route.points[index - 1], point) < .1)){
+            toggle.checked = false;
+            route = null;
+            notice = "These points cannot connect along roads. Finish or clear this line before turning snapping on.";
+          }
+        }
+        state.drawingRoadSnapped = toggle.checked;
+        state.pendingRoadRoute = route;
+        if(route){
+          state.pendingPoints = route.points;
+          state.pendingMarkers.forEach((marker, index) => marker.setLatLng(route.points[index]));
+        }
+        if(state.pendingLine) state.pendingLine.setLatLngs(route?.path || state.pendingPoints);
+        const instruction = state.pendingPoints.length >= 2
+          ? "Add another point, or press Finish Line."
+          : state.pendingPoints.length ? "Add the next point." : "Tap the map to choose the first point.";
+        setText("drawPromptText", `${toggle.checked ? "Snap to roads on." : "Freehand mode."} ${instruction}`);
+      }
       updateRoadOverlay();
       clearSnapPreview();
-      setText("roadStatus", $("snapRoads").checked
+      setText("roadStatus", notice || (toggle.checked
         ? (state.roadNetwork ? "" : "Centerlines unavailable or loading. Uncheck for freehand.")
-        : "Freehand mode. Draw or drag points without road snapping.");
+        : "Freehand mode. Draw or drag points without road snapping."));
     });
     map.on("zoomend", updateRoadOverlay);
     function clearSnapPreview(){
@@ -6399,7 +6427,6 @@
       }
       state.drawMode = active;
       state.drawingRoadSnapped = active && $("snapRoads").checked;
-      $("snapRoads").disabled = active;
       removePendingDrawing();
       $("drawBtn").classList.toggle("active", active);
       $("drawBtn").setAttribute("aria-pressed", String(active));
