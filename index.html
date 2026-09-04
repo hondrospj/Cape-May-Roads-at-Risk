@@ -3851,14 +3851,6 @@
         width:100%;
       }
 
-      #finishDrawBtn[hidden]{
-        display:none !important;
-      }
-
-      #finishDrawBtn[hidden] + #cancelDrawBtn{
-        grid-column:1 / -1;
-      }
-
       .outlookChartHeader{
         display:grid;
         grid-template-columns:1fr;
@@ -3977,7 +3969,7 @@
         min-width:0;
       }
     }
-    /* Keep the profile's primary actions prominent at every screen size. */
+    /* Keep all drawing controls together in the top Map box. */
     .mapModes{
       grid-template-columns:repeat(2,minmax(0,1fr));
     }
@@ -4011,24 +4003,24 @@
       gap:6px;
     }
 
-    .profileActions{
+    .mapActions{
       display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      flex:0 0 auto;
+      grid-template-columns:1fr 1fr 1.3fr;
       gap:10px;
       margin-bottom:14px;
     }
 
-    .profileActions .drawAction,
-    .shell.paneExpanded .profileActions .drawAction{
+    .mapActions .drawAction{
       width:100%;
       min-width:0;
-      min-height:52px;
+      min-height:58px;
       padding:12px 10px;
       border:2px solid;
       border-radius:12px;
-      font-size:16px;
-      font-weight:900;
+      font-size:17px;
+      font-weight:950;
+      white-space:normal;
+      text-transform:uppercase;
       box-shadow:0 4px 12px rgba(0,0,0,.24);
     }
 
@@ -4050,22 +4042,55 @@
       color:#4c0519;
     }
 
-    .profileActions .drawAction:focus-visible{
+    #finishDrawBtn{
+      background:#facc15;
+      border-color:#fef08a;
+      color:#422006;
+    }
+
+    #finishDrawBtn:disabled{
+      background:#51431f;
+      border-color:#c7a94c;
+      color:#fef3c7;
+    }
+
+    .mapActions .drawAction:disabled{
+      cursor:default;
+      opacity:1;
+      filter:none;
+    }
+
+    .mapActions .drawAction:focus-visible{
       outline:3px solid #fff;
       outline-offset:3px;
+    }
+
+    .mapControl .drawPrompt{
+      position:static;
+      inset:auto;
+      z-index:auto;
+      transform:none;
+      width:100%;
+      min-height:0;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) auto;
+      gap:10px;
+      margin-top:10px;
+      padding:10px;
+      box-shadow:none;
+    }
+
+    .mapControl .drawPrompt[hidden]{display:none}
+    .mapControl .drawPromptActions{display:flex;width:auto}
+
+    @media (max-width:430px){
+      .mapActions{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #finishDrawBtn{grid-column:1 / -1}
     }
   </style>
 </head>
 <body>
   <div id="map" aria-label="Roads at Risk map"></div>
-  <div class="drawPrompt" id="drawPrompt" role="status" aria-live="polite" hidden>
-    <span id="drawPromptText">Tap the map to choose the first point.</span>
-    <div class="drawPromptActions">
-      <button id="finishDrawBtn" type="button" hidden>Finish line</button>
-      <button id="cancelDrawBtn" class="secondary" type="button">Cancel</button>
-    </div>
-  </div>
-
   <div class="shell" id="shell">
     <header class="titleBar">
       <div class="brandText">
@@ -4082,6 +4107,11 @@
           <button class="paneHelpBtn" type="button" data-help-key="map" aria-label="Explain the map pane" title="Explain the map pane">?</button>
         </div>
       </div>
+      <div class="mapActions" role="group" aria-label="Draw and clear road profiles">
+        <button id="drawBtn" class="drawAction" type="button" aria-pressed="false">Draw</button>
+        <button id="clearProfilesBtn" class="drawAction" type="button" aria-label="Clear all profiles">Clear</button>
+        <button id="finishDrawBtn" class="drawAction" type="button" disabled title="Add at least two points to finish a line.">Finish Line</button>
+      </div>
       <div class="mapModes" aria-label="Basemap">
         <button data-basemap="satellite" class="active" type="button" aria-pressed="true">Aerial</button>
         <button data-basemap="osm" class="secondary" type="button" aria-pressed="false">Streets</button>
@@ -4090,6 +4120,12 @@
         <label><input id="snapRoads" type="checkbox" checked aria-describedby="roadStatus">Snap to roads</label>
       </div>
       <div id="roadStatus" class="roadStatus" role="status">Loading road centerlines…</div>
+      <div class="drawPrompt" id="drawPrompt" role="status" aria-live="polite" hidden>
+        <span id="drawPromptText">Tap the map to choose the first point.</span>
+        <div class="drawPromptActions">
+          <button id="cancelDrawBtn" class="secondary" type="button">Cancel</button>
+        </div>
+      </div>
     </section>
 
     <aside class="rightStack" aria-label="Roads at Risk tools">
@@ -4112,11 +4148,6 @@
             <button class="paneHelpBtn" type="button" data-help-key="profile" aria-label="Explain the road profile pane" title="Explain the road profile pane">?</button>
             <button class="expandBtn secondary" type="button" data-expand-pane="crossSectionPane" aria-controls="crossSectionPane" aria-expanded="false" aria-label="Expand cross section" title="Expand cross section">+</button>
           </div>
-        </div>
-
-        <div class="profileActions" role="group" aria-label="Road profile actions">
-          <button id="drawBtn" class="drawAction" type="button" aria-pressed="false">Draw</button>
-          <button id="clearProfilesBtn" class="drawAction" type="button" aria-label="Clear all profiles">Clear</button>
         </div>
 
         <div class="crossTop">
@@ -4713,7 +4744,7 @@
       map:{
         title:"Map",
         tourStep:1,
-        body:`<p>Use the map's +/− controls, scroll or pinch to zoom. <strong>Aerial</strong> or <strong>Streets</strong> provide finer detail. Enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows dashed orange NJOGIS centerlines and works when drawing or dragging numbered points. Solid colored lines are profiles; the red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
+        body:`<p>The large buttons at the top of this box control your line: <strong>Draw</strong> starts it, <strong>Finish Line</strong> completes it after at least two points, and <strong>Clear</strong> removes the current profiles.</p><p>Use the map's +/− controls, scroll or pinch to zoom. <strong>Aerial</strong> or <strong>Streets</strong> provide finer detail. Enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows dashed orange NJOGIS centerlines and works when drawing or dragging numbered points. Solid colored lines are profiles; the red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
       },
       profile:{
         title:"Road Profile",
@@ -4746,7 +4777,7 @@
       {
         title:"Draw the road you care about",
         target:"#drawBtn",
-        body:`<p>Press <strong>Draw</strong>, then click each turn along the road. The vertices are numbered in order and those same numbers label the map and graph. Add as many points as the route needs, then press <strong>Finish line</strong>.</p><p>Draw again to compare another road without losing the first. Every vertex on the newest line remains editable. A chart gap means the route left the available elevation surface, not that elevation fell to zero.</p>`
+        body:`<p>Press <strong>Draw</strong> in the top Map box, then click each turn along the road. The vertices are numbered in order and those same numbers label the map and graph. Add as many points as the route needs, then press the yellow <strong>Finish Line</strong> button in that same box.</p><p>Draw again to compare another road without losing the first. Every vertex on the newest line remains editable. A chart gap means the route left the available elevation surface, not that elevation fell to zero.</p>`
       },
       {
         title:"Read the three headline numbers",
@@ -6372,7 +6403,7 @@
       removePendingDrawing();
       $("drawBtn").classList.toggle("active", active);
       $("drawBtn").setAttribute("aria-pressed", String(active));
-      $("drawBtn").textContent = active ? "Add points" : "Draw";
+      $("drawBtn").disabled = active;
       map.getContainer().style.cursor = active ? "crosshair" : "";
       const prompt = $("drawPrompt");
       if(prompt){
@@ -6380,7 +6411,10 @@
         setText("drawPromptText", state.drawingRoadSnapped ? "Tap near a road centerline. Zoom in for precision." : "Freehand: tap the map to choose the first point.");
       }
       const finishButton = $("finishDrawBtn");
-      if(finishButton) finishButton.hidden = true;
+      if(finishButton){
+        finishButton.disabled = true;
+        finishButton.title = "Add at least two points to finish a line.";
+      }
     }
 
     function finishPendingLine(){
@@ -6850,11 +6884,9 @@
     }
 
     $("drawBtn").addEventListener("click", () => {
-      if(state.drawMode){
-        finishPendingLine();
-        return;
-      }
+      if(state.drawMode) return;
       setDrawMode(true);
+      if(!state.drawMode) return;
       if(window.matchMedia("(max-width: 1180px)").matches){
         if($("shell").classList.contains("paneExpanded")) togglePaneExpansion("crossSectionPane");
         window.setTimeout(() => $("map").scrollIntoView({ behavior:"smooth", block:"start" }), 80);
@@ -6964,8 +6996,8 @@
         }else{
           state.pendingLine.setLatLngs(path);
         }
-        $("finishDrawBtn").hidden = false;
-        $("drawBtn").textContent = "Finish line";
+        $("finishDrawBtn").disabled = false;
+        $("finishDrawBtn").title = "Finish the current line.";
         setText("chartStatus", `${state.pendingPoints.length} vertices ready`);
         setText("drawPromptText", state.drawingRoadSnapped ? "Snapped to centerlines. Add another road point, or finish." : "Add another point, or finish this line.");
       }else{

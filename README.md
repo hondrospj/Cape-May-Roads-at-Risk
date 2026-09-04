@@ -2,7 +2,7 @@
 
 Static GitHub Pages app for drawing road and cross-section profiles through the Cape May municipal DEM.
 
-The interface follows the North Wildwood Roads at Risk reference: threshold presets, NAVD88/MLLW conversion, Aerial and Streets basemaps with terrain hillshade, saved multi-line cross sections, flood-history and future-frequency charts, and CSV/Shapefile exports. Aerial is the default map; prominent Draw and Clear controls sit below the Road Profile heading.
+The interface follows the North Wildwood Roads at Risk reference: threshold presets, NAVD88/MLLW conversion, Aerial and Streets basemaps with terrain hillshade, saved multi-line cross sections, flood-history and future-frequency charts, and CSV/Shapefile exports. Aerial is the default map. Large Draw, Clear, and Finish Line controls sit together in the top Map box. Finish Line stays visible and enables after two accepted points; drawing instructions and Cancel appear in the same box.
 
 Municipal constants:
 
