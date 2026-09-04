@@ -27,6 +27,9 @@ const boundaryChecks=await page.evaluate(async()=>{
  // Preserve actual rendered coordinates; Leaflet's default six-decimal
  // export rounding can move an exact boundary intersection centimeters out.
  const visible=state.roadLayer.toGeoJSON(false);
+ const guide=state.roadLayer.getLayers()[0];
+ if(guide.options.color!=='#f59e0b' || guide.options.dashArray!=='4 5') throw new Error('snap guides must be dashed orange');
+ if(state.line.options.color!=='#22d3ee') throw new Error('default profile must stay blue');
  if(visible.features.some(f=>f.geometry.coordinates.some(p=>!contains(p)))) throw new Error('outside road still highlighted');
  const outside=raw.features.flatMap(f=>f.geometry.coordinates).find(p=>!contains(p));
  if(state.roadNetwork.nearest(outside,1000)) throw new Error('outside snapping target remains');
@@ -67,6 +70,7 @@ const taps=await page.evaluate(async()=>{
 await page.locator('#drawBtn').click();
 await page.mouse.move(taps[0].x,taps[0].y);
 assert.ok(await page.evaluate(()=>!!__rr.state.snapPreview),'snap preview must show for real mouse');
+assert.equal(await page.evaluate(()=>__rr.state.snapPreview.options.fillColor),'#f59e0b');
 await page.mouse.click(taps[0].x,taps[0].y);
 await page.mouse.click(taps[1].x,taps[1].y);
 await page.locator('#finishDrawBtn').click();

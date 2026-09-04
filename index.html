@@ -3958,7 +3958,8 @@
     #profileChart{touch-action:pan-y}
     .roadControls{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:8px}
     .roadControls label{display:flex;align-items:center;gap:7px;min-height:36px;font-size:12px;cursor:pointer}
-    .roadControls input{width:17px;height:17px;margin:0;accent-color:#22d3ee}
+    .roadControls input{width:17px;height:17px;margin:0;accent-color:#f59e0b}
+    .roadControls label::after{content:"";width:24px;border-top:2px dashed #f59e0b}
     .roadStatus{margin-top:4px;font-size:11px;line-height:1.4;opacity:.8;overflow-wrap:anywhere}
     .roadStatus:empty{display:none}
     @media (min-width:1181px){
@@ -4375,7 +4376,7 @@
         map.getPane("roadCenterlines").style.zIndex = 410;
         map.getPane("roadCenterlines").style.pointerEvents = "none";
         state.roadLayer = L.geoJSON(data, {pane:"roadCenterlines", interactive:false,
-          style:{color:"#0ea5e9",weight:2,opacity:.6},
+          style:{color:"#f59e0b",weight:2,opacity:.8,dashArray:"4 5"},
           attribution:'Road centerlines: <a href="https://www.arcgis.com/home/item.html?id=f8cca09665b448709b6073b4ccb25c59">NJOGIS</a>'});
         updateRoadOverlay();
         setText("roadStatus", $("snapRoads").checked
@@ -4405,7 +4406,7 @@
       const location = L.latLng(snap.coordinate[1],snap.coordinate[0]);
       if(!state.snapPreview){
         state.snapPreview = L.circleMarker(location, {radius:7,color:"#fff",weight:2,
-          fillColor:"#0ea5e9",fillOpacity:1,interactive:false,pane:"roadCenterlines"}).addTo(map);
+          fillColor:"#f59e0b",fillOpacity:1,interactive:false,pane:"roadCenterlines"}).addTo(map);
       }else state.snapPreview.setLatLng(location);
       const label = document.createElement("span");
       label.textContent = `Snap: ${snap.edge.name}`;
@@ -4648,7 +4649,7 @@
       map:{
         title:"Map",
         tourStep:1,
-        body:`<p>Use the map's +/− controls, scroll or pinch to zoom. <strong>Aerial</strong> or <strong>Streets</strong> provide finer detail. Enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows blue NJOGIS centerlines and works when drawing or dragging numbered points. The red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
+        body:`<p>Use the map's +/− controls, scroll or pinch to zoom. <strong>Aerial</strong> or <strong>Streets</strong> provide finer detail. Enlargement does not improve the source resolution.</p><p><strong>Snap to roads</strong> shows dashed orange NJOGIS centerlines and works when drawing or dragging numbered points. Solid colored lines are profiles; the red outline is the town boundary. Changing backgrounds never changes the 5-foot terrain data or profile calculations.</p>`
       },
       profile:{
         title:"Road Profile",
@@ -6241,7 +6242,7 @@
             const snap = nearestRoadPoint(marker.getLatLng());
             if(!snap){
               marker.setLatLng(previousPosition);
-              setText("roadStatus", "No city centerline here. Point kept in place; move inside Cape May, near a blue road.");
+              setText("roadStatus", "No city centerline here. Point kept in place; move inside Cape May, near a dashed orange road.");
               return;
             }
             const snappedPoint = L.latLng(snap.coordinate[1],snap.coordinate[0]);
