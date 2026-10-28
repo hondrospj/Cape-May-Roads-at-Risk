@@ -1,0 +1,44 @@
+name: Six-hour data refresh and publication
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "25 2,8,14,20 * * *"
+permissions:
+  contents: write
+concurrency:
+  group: cape-may-six-hour-chain
+  cancel-in-progress: false
+jobs:
+  refresh_0:
+    uses: ./.github/workflows/update-history.yml
+    secrets: inherit
+  validate-and-commit:
+    needs: refresh_0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Validate actual source clocks, identities and payloads
+        run: python3 .shorelysafe/verify_data_freshness.py --product roads-at-risk
+      - name: Commit validated refresh receipt
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/refresh_status.json
+          if ! git diff --cached --quiet; then
+            git commit -m "Record validated six-hour source refresh"
+            git pull --rebase --autostash origin main
+            git push origin HEAD:main
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: source-freshness
+          path: data/refresh_status.json
+  publish:
+    needs: validate-and-commit
+    uses: ./.github/workflows/refresh-deployed-data.yml
+    secrets: inherit

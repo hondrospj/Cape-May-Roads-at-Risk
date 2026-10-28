@@ -1,0 +1,55 @@
+name: Refresh deployed data only
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        type: boolean
+        default: false
+        description: Validate and compare current data without publishing
+  workflow_call:
+    secrets:
+      SHORELYSAFE_PUBLISH_TOKEN:
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: shorelysafe-publish
+  cancel-in-progress: false
+jobs:
+  publish-data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .shorelysafe/
+            data/
+            forecast.json
+            forecasts.json
+            observed.json
+            observedoverflow.json
+            toptides.json
+            flood_stats.json
+            history-refresh-source.json
+      - name: Validate data immediately before publication
+        run: python3 .shorelysafe/verify_data_freshness.py --product roads-at-risk --check-only
+      - name: Publish approved data and verify the hosted bytes while preserving the UI
+        env:
+          SHORELYSAFE_TOKEN: ${{ secrets.SHORELYSAFE_PUBLISH_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+          args=()
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          python3 .shorelysafe/publish_data_overlay.py --app "roads-at-risk--cape-may" "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: publication-receipt
+          path: |
+            data-overlay-publication-receipt.json
+            data/refresh_status.json
