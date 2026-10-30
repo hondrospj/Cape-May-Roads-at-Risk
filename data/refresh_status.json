@@ -2,12 +2,12 @@
   "schema": "shorelysafe-refresh-v1",
   "town": "Cape May",
   "product": "roads-at-risk",
-  "runAt": "2026-10-30T14:30:45.017218Z",
+  "runAt": "2026-10-30T20:27:21.563937Z",
   "repository": "hondrospj/Cape-May-Roads-at-Risk",
-  "runUrl": "https://github.com/hondrospj/Cape-May-Roads-at-Risk/actions/runs/41072101781",
+  "runUrl": "https://github.com/hondrospj/Cape-May-Roads-at-Risk/actions/runs/41123296676",
   "payloads": {
     "flood_stats.json": {
-      "sha256": "8da1d90c0e5f67dbdad017fbed9ba07d7ae19d089fa49dbdbf2c4dd41b6e5cb0",
+      "sha256": "3bb45cb1a925566a5f26d13543e8c39140321d5ff84178295ef793ef562b2f68",
       "bytes": 862961
     }
   },
@@ -16,9 +16,9 @@
   "datum": "NAVD88",
   "parameter": "72279",
   "source": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?monitoring_location_id=USGS-01411390&parameter_code=72279",
-  "latestObservation": "2026-10-30T14:18:00.000Z",
+  "latestObservation": "2026-10-30T20:12:00.000Z",
   "archiveEndDate": "2026-10-30",
   "calibrationUnchanged": true,
-  "sourceUpdatedAt": "2026-10-30T14:30:33.848Z",
+  "sourceUpdatedAt": "2026-10-30T20:27:11.762Z",
   "validated": true
 }
