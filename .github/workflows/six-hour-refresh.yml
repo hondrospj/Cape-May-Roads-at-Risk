@@ -1,8 +1,8 @@
-name: Daily data refresh and publication
+name: Six-hour data refresh and publication
 on:
   workflow_dispatch:
   schedule:
-    - cron: "25 14 * * *"
+    - cron: "25 2,8,14,20 * * *"
 permissions:
   contents: write
 concurrency:
