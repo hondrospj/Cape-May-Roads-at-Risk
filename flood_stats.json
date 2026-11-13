@@ -1,6 +1,6 @@
 {
   "schema": "roads-at-risk-flood-stats-v2",
-  "generatedAt": "2026-11-12T20:28:00.611Z",
+  "generatedAt": "2026-11-13T02:27:02.454Z",
   "gaugeName": "Cape May Harbor",
   "station": {
     "usgsGaugeId": "01411390",
@@ -44540,11 +44540,11 @@
     "datum": "NAVD88",
     "units": "ft",
     "timeZone": "America/New_York",
-    "fetchedAtUtc": "2026-11-12T20:28:00.611Z",
-    "latestObservationUtc": "2026-11-12T20:12:00.000Z",
+    "fetchedAtUtc": "2026-11-13T02:27:02.454Z",
+    "latestObservationUtc": "2026-11-13T02:12:00.000Z",
     "source": "USGS continuous API; WaterServices fallback",
     "sourceUrl": "https://api.waterdata.usgs.gov/ogcapi/v1/collections/continuous/items?monitoring_location_id=USGS-01411390&parameter_code=72279",
     "method": "Local-calendar daily maxima; stored maxima retained on overlap; existing tide/trend calibration unchanged",
-    "observationsFetched": 923
+    "observationsFetched": 983
   }
 }
